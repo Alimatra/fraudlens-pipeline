@@ -84,6 +84,34 @@ Calcul d'indicateurs metier : volume de transactions par type, montant moyen par
 - Distribution des montants par type de transaction
 - Latence moyenne du pipeline bronze -> gold
 
+## Resultats
+
+Pipeline execute de bout en bout sur Azure Data Factory + Databricks (PySpark), a partir du dataset PaySim (6 362 620 transactions brutes).
+
+### Couche Bronze - Ingestion
+
+- **6 362 620 lignes** ingerees depuis le fichier source CSV vers Azure Data Lake Gen2, sans transformation, avec ajout de metadonnees de tracabilite (horodatage d'ingestion, chemin source).
+
+### Couche Silver - Nettoyage
+
+- **6 362 620 lignes** avant nettoyage
+- **6 362 604 lignes** apres nettoyage (typage, deduplication, filtrage des montants nuls)
+- **16 lignes** invalides ou dupliquees supprimees
+
+### Couche Gold - Indicateurs de fraude par type de transaction
+
+| Type de transaction | Nb transactions | Nb suspectes | Montant moyen (devise simulee) | Taux de fraude |
+|---|---|---|---|---|
+| TRANSFER | 532 909 | 4 097 | 910 647,01 | 0,7688 % |
+| CASH_OUT | 2 237 484 | 4 100 | 176 275,22 | 0,1832 % |
+| CASH_IN | 1 399 284 | 0 | 168 920,24 | 0,0000 % |
+| PAYMENT | 2 151 495 | 0 | 13 057,60 | 0,0000 % |
+| DEBIT | 41 432 | 0 | 5 483,67 | 0,0000 % |
+
+**Constat cle** : la fraude se concentre exclusivement sur les transactions de type **TRANSFER** et **CASH_OUT**, qui representent a elles deux 8 197 transactions suspectes sur un total de 6 362 604 (soit un taux de fraude global d'environ **0,13 %**). Les types CASH_IN, PAYMENT et DEBIT n'affichent aucune transaction flaguee dans ce dataset, ce qui est coherent avec le comportement attendu d'un reseau mobile money : les transferts et retraits sont les vecteurs privilegies de blanchiment, car ils permettent de deplacer et sortir les fonds du systeme.
+
+Ce constat oriente une piste d'optimisation concrete pour un futur systeme de detection : concentrer les regles de surveillance et les modeles de scoring sur les flux TRANSFER et CASH_OUT plutot que de traiter l'ensemble des types de transaction de maniere uniforme.
+
 ## Comment reproduire
 
 1. Creer un compte Azure (essai gratuit disponible)
